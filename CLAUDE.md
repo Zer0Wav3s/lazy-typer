@@ -39,5 +39,5 @@ Single-file application (`lazy_typer.py`) with these key components:
 - `pyautogui.PAUSE = 0` disables the default 0.1s pause after each pyautogui call (critical for speed)
 - `pyautogui.FAILSAFE = False` prevents corner-trigger interrupts
 - Separator lines (---, ===, ⸻) convert to Enter presses, not typed text
-- Text input terminates on two consecutive empty lines (three Enter presses)
+- Text input terminates on one empty line (two Enter presses)
 - Bullet/numbered lists preserved with proper spacing
