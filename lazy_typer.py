@@ -302,9 +302,14 @@ def get_countdown() -> int:
         print(f"{Colors.CYAN}{Colors.BOLD}Set Countdown Timer{Colors.RESET}")
         print_divider()
         print(f"  {Colors.GRAY}Enter a number between 1 and 10{Colors.RESET}")
+        print(f"  {Colors.GRAY}Press Enter for default ({DEFAULT_COUNTDOWN}s){Colors.RESET}")
         print_divider()
 
         choice = input(f"\n{Colors.CYAN}Seconds:{Colors.RESET} ").strip()
+
+        if choice == '':
+            print_success(f"Countdown set: {DEFAULT_COUNTDOWN} seconds")
+            return DEFAULT_COUNTDOWN
 
         try:
             seconds = int(choice)
@@ -338,7 +343,7 @@ def main():
     """Main loop for the Lazy Typer."""
     print_header()
     app_mode = get_app_mode()
-    countdown_seconds = DEFAULT_COUNTDOWN
+    countdown_seconds = get_countdown()
 
     while True:
         text = get_multiline_input()
