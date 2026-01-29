@@ -86,7 +86,7 @@ WPM = 250
 CHARS_PER_WORD = 5
 VARIATION = 0.45  # ±45% randomness for more natural feel
 WORD_PAUSE_MULTIPLIER = 1.08
-COUNTDOWN_SECONDS = 5
+DEFAULT_COUNTDOWN = 5
 
 # Calculate base delay
 BASE_DELAY = 60.0 / (WPM * CHARS_PER_WORD)
@@ -148,11 +148,11 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def countdown():
+def countdown(seconds: int):
     """Display a visual countdown before typing starts."""
     print()
     print(f"{Colors.YELLOW}{Colors.BOLD}Get ready! Typing starts in...{Colors.RESET}")
-    for i in range(COUNTDOWN_SECONDS, 0, -1):
+    for i in range(seconds, 0, -1):
         print(f"  {Colors.CYAN}{Colors.BOLD}{i}{Colors.RESET}{Colors.GRAY}...{Colors.RESET}")
         time.sleep(1)
     print(f"  {Colors.GREEN}{Colors.BOLD}GO!{Colors.RESET}")
@@ -295,13 +295,36 @@ def show_done_message(app_mode: str):
     print(f"  {Colors.GRAY}Mode: {Colors.CYAN}{mode_name}{Colors.RESET}")
 
 
-def show_menu():
+def get_countdown() -> int:
+    """Prompt user to set countdown seconds."""
+    while True:
+        print()
+        print(f"{Colors.CYAN}{Colors.BOLD}Set Countdown Timer{Colors.RESET}")
+        print_divider()
+        print(f"  {Colors.GRAY}Enter a number between 1 and 10{Colors.RESET}")
+        print_divider()
+
+        choice = input(f"\n{Colors.CYAN}Seconds:{Colors.RESET} ").strip()
+
+        try:
+            seconds = int(choice)
+            if 1 <= seconds <= 10:
+                print_success(f"Countdown set: {seconds} seconds")
+                return seconds
+            else:
+                print_error("Please enter a number between 1 and 10.")
+        except ValueError:
+            print_error("Invalid input. Please enter a number.")
+
+
+def show_menu(countdown_seconds: int):
     """Show the options menu."""
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}What's next?{Colors.RESET}")
     print_divider()
     print(f"  {Colors.YELLOW}[Enter]{Colors.RESET}  Type more text")
     print(f"  {Colors.YELLOW}[M]{Colors.RESET}      Change mode")
+    print(f"  {Colors.YELLOW}[T]{Colors.RESET}      Change countdown timer ({countdown_seconds}s)")
     print(f"  {Colors.YELLOW}[Q]{Colors.RESET}      Quit")
     print(f"  {Colors.GRAY}Or just paste your next text directly!{Colors.RESET}")
     print_divider()
@@ -315,6 +338,7 @@ def main():
     """Main loop for the Lazy Typer."""
     print_header()
     app_mode = get_app_mode()
+    countdown_seconds = DEFAULT_COUNTDOWN
 
     while True:
         text = get_multiline_input()
@@ -334,10 +358,10 @@ def main():
         estimated_time = char_count * BASE_DELAY
 
         show_ready_message(char_count, word_count, estimated_time)
-        countdown()
+        countdown(countdown_seconds)
         type_text(text, app_mode)
         show_done_message(app_mode)
-        show_menu()
+        show_menu(countdown_seconds)
 
         choice = input(f"\n{Colors.CYAN}Your choice:{Colors.RESET} ").strip()
 
@@ -347,6 +371,8 @@ def main():
             sys.exit(0)
         elif choice.lower() == 'm':
             app_mode = get_app_mode()
+        elif choice.lower() == 't':
+            countdown_seconds = get_countdown()
         elif choice == '':
             pass
         else:
@@ -357,7 +383,7 @@ def main():
                 word_count = len(cleaned.split())
                 estimated_time = char_count * BASE_DELAY
                 show_ready_message(char_count, word_count, estimated_time)
-                countdown()
+                countdown(countdown_seconds)
                 type_text(text, app_mode)
                 show_done_message(app_mode)
             continue
