@@ -328,13 +328,15 @@ def get_countdown() -> int:
             print_error("Invalid input. Please enter a number.")
 
 
-def show_menu(countdown_seconds: int):
+def show_menu(countdown_seconds: int, app_mode: str):
     """Show the options menu."""
+    mode_display = {"word": "Word", "excel": "Excel", "compress": "Compress"}
+    mode_name = mode_display.get(app_mode, app_mode)
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}What's next?{Colors.RESET}")
     print_divider()
     print(f"  {Colors.YELLOW}[Enter]{Colors.RESET}  Type more text")
-    print(f"  {Colors.YELLOW}[M]{Colors.RESET}      Change mode")
+    print(f"  {Colors.YELLOW}[W/E/C]{Colors.RESET}  Switch mode ({mode_name})")
     print(f"  {Colors.YELLOW}[T]{Colors.RESET}      Change countdown timer ({countdown_seconds}s)")
     print(f"  {Colors.YELLOW}[Q]{Colors.RESET}      Quit")
     print(f"  {Colors.GRAY}Or just paste your next text directly!{Colors.RESET}")
@@ -372,7 +374,7 @@ def main():
         countdown(countdown_seconds)
         type_text(text, app_mode)
         show_done_message(app_mode)
-        show_menu(countdown_seconds)
+        show_menu(countdown_seconds, app_mode)
 
         choice = input(f"\n{Colors.CYAN}Your choice:{Colors.RESET} ").strip()
 
@@ -380,6 +382,15 @@ def main():
             print()
             print_info("Goodbye! 👋")
             sys.exit(0)
+        elif choice.lower() in ('w', 'word'):
+            app_mode = "word"
+            print_success("Mode set: Microsoft Word")
+        elif choice.lower() in ('e', 'excel'):
+            app_mode = "excel"
+            print_success("Mode set: Microsoft Excel")
+        elif choice.lower() in ('c', 'compress'):
+            app_mode = "compress"
+            print_success("Mode set: Compress (single line)")
         elif choice.lower() == 'm':
             app_mode = get_app_mode()
         elif choice.lower() == 't':
