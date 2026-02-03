@@ -4,7 +4,7 @@
 
 **Human-Like Typing Simulation for Word, Excel, and More**
 
-[![Version](https://img.shields.io/badge/Version-1.0.0-red?logo=github&logoColor=white)](https://github.com/Zer0Wav3s/lazy-typer/releases)
+[![Version](https://img.shields.io/badge/Version-1.1.0-red?logo=github&logoColor=white)](https://github.com/Zer0Wav3s/lazy-typer/releases)
 [![Python](https://img.shields.io/badge/Python-3.6+-blue?logo=python&logoColor=white)](https://www.python.org)
 [![PyAutoGUI](https://img.shields.io/badge/PyAutoGUI-keyboard_automation-green?logo=python&logoColor=white)](https://pyautogui.readthedocs.io)
 
@@ -16,8 +16,9 @@
 
 - **Human-like typing** at ~250 WPM with natural variation
 - **Three application modes**: Word, Excel, and Compress
+- **Adjustable countdown timer**: Set between 1-10 seconds
+- **Quick mode switching**: Press W/E/C to change modes instantly
 - **Smart text cleaning**: Removes tabs, handles separators, preserves lists
-- **Visual countdown** before typing begins
 - **Continuous operation**: Loop for multiple text entries
 
 ## Installation
@@ -38,10 +39,16 @@ python lazy_typer.py
 ```
 
 1. Select your application mode (Word, Excel, or Compress)
-2. Paste or type your text
-3. Press Enter 3 times to confirm
-4. Switch to your target application during the countdown
-5. Text will be typed automatically
+2. Set your countdown timer (1-10 seconds, or Enter for default)
+3. Paste or type your text
+4. Press Enter 3 times to confirm
+5. Switch to your target application during the countdown
+6. Text will be typed automatically
+
+After typing completes, use these shortcuts:
+- **W/E/C** - Switch mode directly
+- **T** - Change countdown timer
+- **Q** - Quit
 
 ## Modes
 
@@ -53,12 +60,12 @@ python lazy_typer.py
 
 ## Configuration
 
-Edit the constants in `lazy_typer.py` to customize behavior:
+Edit the constants in `lazy_typer.py` to customize default behavior:
 
 ```python
 WPM = 250                    # Words per minute
 VARIATION = 0.45             # Typing speed variation (±45%)
-COUNTDOWN_SECONDS = 5        # Countdown before typing
+DEFAULT_COUNTDOWN = 5        # Default countdown (adjustable at runtime)
 WORD_PAUSE_MULTIPLIER = 1.08 # Extra pause between words
 ```
 
