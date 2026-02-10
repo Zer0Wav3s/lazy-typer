@@ -132,13 +132,16 @@ def clean_text(text: str) -> str:
             continue
 
         if not stripped:
+            # Preserve single blank lines as paragraph breaks, skip consecutive ones
+            if cleaned_lines and cleaned_lines[-1] != '':
+                cleaned_lines.append('')
             i += 1
             continue
 
         cleaned_lines.append(stripped)
         i += 1
 
-    while cleaned_lines and cleaned_lines[-1] == SEPARATOR_MARKER:
+    while cleaned_lines and cleaned_lines[-1] in (SEPARATOR_MARKER, ''):
         cleaned_lines.pop()
 
     text = '\n'.join(cleaned_lines)
@@ -172,7 +175,7 @@ def type_text(text: str, app_mode: str):
     text = clean_text(text)
 
     if app_mode == "compress":
-        lines = [line for line in text.split('\n') if line != SEPARATOR_MARKER]
+        lines = [line for line in text.split('\n') if line != SEPARATOR_MARKER and line != '']
         compressed = ' '.join(lines)
         compressed = re.sub(r'  +', ' ', compressed)
         compressed = re.sub(r'\.(?=[A-Za-z])', '. ', compressed)
@@ -191,6 +194,12 @@ def type_text(text: str, app_mode: str):
         if line == SEPARATOR_MARKER:
             time.sleep(calculate_delay())
             pyautogui.press('enter')
+            time.sleep(calculate_delay())
+            continue
+
+        if line == '':
+            # Paragraph break — extra Enter for visual spacing
+            type_newline(app_mode)
             time.sleep(calculate_delay())
             continue
 
@@ -215,7 +224,7 @@ def get_multiline_input(first_line: str = None) -> str:
     """Collect multiline text input until two consecutive empty lines."""
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}Paste or type your text below{Colors.RESET}")
-    print(f"{Colors.GRAY}   Press Enter 2 times when done{Colors.RESET}")
+    print(f"{Colors.GRAY}   Press Enter 3 times when done{Colors.RESET}")
     print()
 
     lines = []
@@ -225,12 +234,17 @@ def get_multiline_input(first_line: str = None) -> str:
         print(f"   {Colors.DIM}Captured: {preview}{Colors.RESET}")
         lines.append(first_line)
 
+    empty_count = 0
     while True:
         try:
             line = input()
             if line == "":
-                break
+                empty_count += 1
+                if empty_count >= 2:
+                    break
+                lines.append(line)  # preserve single blank lines (paragraph breaks)
             else:
+                empty_count = 0
                 lines.append(line)
         except EOFError:
             break
