@@ -463,27 +463,32 @@ def arrow_key_select(options, selected=0):
 
 
 def run_git_pull():
-    """Run git pull in the script's directory. Returns True on success."""
+    """Fetch and reset to origin/main. Returns True on success."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     try:
-        result = subprocess.run(
-            ["git", "pull"],
+        fetch = subprocess.run(
+            ["git", "fetch", "origin"],
             cwd=script_dir,
             capture_output=True,
             text=True,
             timeout=30
         )
-        if result.returncode == 0:
-            stdout = result.stdout.strip()
-            if "Already up to date" in stdout:
-                print_info("Already up to date.")
-                return False
+        if fetch.returncode != 0:
+            print_error(f"Update failed: {fetch.stderr.strip()}")
+            return False
+
+        reset = subprocess.run(
+            ["git", "reset", "--hard", "origin/main"],
+            cwd=script_dir,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if reset.returncode == 0:
             print_success("Updated successfully!")
-            if stdout:
-                print(f"  {Colors.GRAY}{stdout}{Colors.RESET}")
             return True
         else:
-            print_error(f"Update failed: {result.stderr.strip()}")
+            print_error(f"Update failed: {reset.stderr.strip()}")
             return False
     except subprocess.TimeoutExpired:
         print_error("Update timed out. Check your network connection.")
