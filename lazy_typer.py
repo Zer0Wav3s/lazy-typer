@@ -221,10 +221,10 @@ def type_text(text: str, app_mode: str):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def get_multiline_input(first_line: str = None) -> str:
-    """Collect multiline text input until two consecutive empty lines."""
+    """Collect multiline text input until an empty line."""
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}Paste or type your text below{Colors.RESET}")
-    print(f"{Colors.GRAY}   Press Enter 3 times when done{Colors.RESET}")
+    print(f"{Colors.GRAY}   Press Enter 2 times when done{Colors.RESET}")
     print()
 
     lines = []
@@ -234,18 +234,12 @@ def get_multiline_input(first_line: str = None) -> str:
         print(f"   {Colors.DIM}Captured: {preview}{Colors.RESET}")
         lines.append(first_line)
 
-    empty_count = 0
     while True:
         try:
             line = input()
             if line == "":
-                empty_count += 1
-                if empty_count >= 2:
-                    break
-                lines.append(line)  # preserve single blank lines (paragraph breaks)
-            else:
-                empty_count = 0
-                lines.append(line)
+                break
+            lines.append(line)
         except EOFError:
             break
 
@@ -267,6 +261,7 @@ def get_app_mode() -> str:
         print(f"  {Colors.YELLOW}[C]{Colors.RESET}  {Colors.WHITE}Compress Mode{Colors.RESET}")
         print(f"       {Colors.GRAY}All text on one line, no line breaks{Colors.RESET}")
         print_divider()
+        print(f"  {Colors.GRAY}Press Ctrl+C to quit{Colors.RESET}")
 
         choice = input(f"\n{Colors.CYAN}Enter choice (W/E/C):{Colors.RESET} ").strip().lower()
 
