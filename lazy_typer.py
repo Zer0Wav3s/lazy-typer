@@ -520,8 +520,9 @@ def check_and_prompt_update():
         print()
         if run_git_pull():
             print()
-            print_info(f"Restart the script to use v{latest}.")
-            sys.exit(0)
+            print_info("Restarting with updated version...")
+            time.sleep(1)
+            os.execv(sys.executable, [sys.executable] + sys.argv)
         else:
             print()
             print_warning("Continuing with current version.")
