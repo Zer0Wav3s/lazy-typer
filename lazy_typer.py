@@ -8,6 +8,9 @@ import time
 import random
 import sys
 import re
+import os
+import subprocess
+import json
 import pyautogui
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -42,7 +45,7 @@ def print_header():
     """Print the application header."""
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}╔═══════════════════════════════════════════════════════╗{Colors.RESET}")
-    print(f"{Colors.CYAN}{Colors.BOLD}║{Colors.RESET}  {Colors.YELLOW}{Colors.BOLD}LAZY TYPER{Colors.RESET}  {Colors.GRAY}- Human-like typing simulator            {Colors.CYAN}{Colors.BOLD}║{Colors.RESET}")
+    print(f"{Colors.CYAN}{Colors.BOLD}║{Colors.RESET}  {Colors.YELLOW}{Colors.BOLD}LAZY TYPER{Colors.RESET} {Colors.DIM}v{VERSION}{Colors.RESET}  {Colors.GRAY}- Human-like typing simulator      {Colors.CYAN}{Colors.BOLD}║{Colors.RESET}")
     print(f"{Colors.CYAN}{Colors.BOLD}║{Colors.RESET}  {Colors.GRAY}Speed: ~{WPM} WPM with natural variation               {Colors.CYAN}{Colors.BOLD}║{Colors.RESET}")
     print(f"{Colors.CYAN}{Colors.BOLD}╚═══════════════════════════════════════════════════════╝{Colors.RESET}")
     print()
@@ -87,6 +90,10 @@ CHARS_PER_WORD = 5
 VARIATION = 0.45  # ±45% randomness for more natural feel
 WORD_PAUSE_MULTIPLIER = 1.08
 DEFAULT_COUNTDOWN = 5
+
+# Version and update check
+VERSION = "1.2.0"
+GITHUB_REPO = "Zer0Wav3s/lazy-typer"
 
 # Calculate base delay
 BASE_DELAY = 60.0 / (WPM * CHARS_PER_WORD)
@@ -350,11 +357,175 @@ def show_menu(countdown_seconds: int, app_mode: str):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# VERSION CHECK
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def check_for_latest_version():
+    """Check GitHub for a newer release. Returns (version, url) or None.
+
+    Uses curl instead of urllib to avoid macOS Python SSL certificate issues.
+    Silently returns None on any network or parse error.
+    """
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+    try:
+        result = subprocess.run(
+            ["curl", "-s", "--connect-timeout", "2", "--max-time", "5",
+             "-H", "Accept: application/vnd.github+json",
+             "-H", "User-Agent: lazy-typer-update-check",
+             url],
+            capture_output=True, text=True, timeout=7
+        )
+        if result.returncode != 0:
+            return None
+
+        data = json.loads(result.stdout)
+        tag = data.get("tag_name", "")
+        latest = tag.lstrip("v")
+        html_url = data.get("html_url", "")
+
+        if latest and latest != VERSION:
+            return (latest, html_url)
+        return None
+    except (subprocess.TimeoutExpired, json.JSONDecodeError,
+            KeyError, OSError, ValueError):
+        return None
+
+
+def arrow_key_select(options, selected=0):
+    """Interactive arrow-key menu. Returns selected index.
+
+    Uses tty.setcbreak() for raw input on macOS/Linux.
+    Falls back to numbered input if terminal is not a TTY.
+    """
+    import select as sel
+
+    if not sys.stdin.isatty():
+        for i, opt in enumerate(options):
+            print(f"  [{i + 1}] {opt}")
+        choice = input("Choice: ").strip()
+        try:
+            idx = int(choice) - 1
+            return idx if 0 <= idx < len(options) else len(options) - 1
+        except (ValueError, IndexError):
+            return len(options) - 1
+
+    import tty, termios
+
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    num_opts = len(options)
+
+    def draw():
+        sys.stdout.write(f"\033[{num_opts}A")
+        for i, opt in enumerate(options):
+            if i == selected:
+                sys.stdout.write(
+                    f"\r  {Colors.GREEN}{Colors.BOLD}> {opt}{Colors.RESET}\033[K\n"
+                )
+            else:
+                sys.stdout.write(
+                    f"\r    {Colors.GRAY}{opt}{Colors.RESET}\033[K\n"
+                )
+        sys.stdout.flush()
+
+    for _ in options:
+        print()
+    draw()
+
+    try:
+        tty.setcbreak(fd)
+        while True:
+            b = os.read(fd, 1)
+
+            if b in (b'\r', b'\n'):
+                break
+            if b == b'\x03':
+                raise KeyboardInterrupt
+
+            if b == b'\x1b':
+                if sel.select([fd], [], [], 0.05)[0]:
+                    b2 = os.read(fd, 1)
+                    if b2 == b'[' and sel.select([fd], [], [], 0.05)[0]:
+                        b3 = os.read(fd, 1)
+                        if b3 == b'A':
+                            selected = (selected - 1) % num_opts
+                        elif b3 == b'B':
+                            selected = (selected + 1) % num_opts
+                        draw()
+                else:
+                    selected = num_opts - 1
+                    break
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+    print()
+    return selected
+
+
+def run_git_pull():
+    """Run git pull in the script's directory. Returns True on success."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        result = subprocess.run(
+            ["git", "pull"],
+            cwd=script_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode == 0:
+            print_success("Updated successfully!")
+            stdout = result.stdout.strip()
+            if stdout:
+                print(f"  {Colors.GRAY}{stdout}{Colors.RESET}")
+            return True
+        else:
+            print_error(f"Update failed: {result.stderr.strip()}")
+            return False
+    except subprocess.TimeoutExpired:
+        print_error("Update timed out. Check your network connection.")
+        return False
+    except FileNotFoundError:
+        print_error("git not found. Please install git or update manually.")
+        return False
+    except OSError as e:
+        print_error(f"Update failed: {e}")
+        return False
+
+
+def check_and_prompt_update():
+    """Check for updates and prompt user if a new version is available."""
+    update_info = check_for_latest_version()
+    if update_info is None:
+        return
+
+    latest, url = update_info
+
+    print()
+    print(f"  {Colors.YELLOW}{Colors.BOLD}New version available: v{latest}{Colors.RESET}"
+          f"  {Colors.GRAY}(current: v{VERSION}){Colors.RESET}")
+    print()
+
+    choice = arrow_key_select(["Update Now", "Continue"], selected=0)
+
+    if choice == 0:
+        print()
+        if run_git_pull():
+            print()
+            print_info(f"Restart the script to use v{latest}.")
+            sys.exit(0)
+        else:
+            print()
+            print_warning("Continuing with current version.")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def main():
     """Main loop for the Lazy Typer."""
+    check_and_prompt_update()
     print_header()
     app_mode = get_app_mode()
     countdown_seconds = get_countdown()

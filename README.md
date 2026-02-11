@@ -4,7 +4,7 @@
 
 **Human-Like Typing Simulation for Word, Excel, and More**
 
-[![Version](https://img.shields.io/badge/Version-1.1.2-red?logo=github&logoColor=white)](https://github.com/Zer0Wav3s/lazy-typer/releases)
+[![Version](https://img.shields.io/badge/Version-1.2.0-red?logo=github&logoColor=white)](https://github.com/Zer0Wav3s/lazy-typer/releases)
 [![Python](https://img.shields.io/badge/Python-3.6+-blue?logo=python&logoColor=white)](https://www.python.org)
 [![PyAutoGUI](https://img.shields.io/badge/PyAutoGUI-keyboard_automation-green?logo=python&logoColor=white)](https://pyautogui.readthedocs.io)
 
@@ -19,6 +19,7 @@
 - **Adjustable countdown timer**: Set between 1-10 seconds
 - **Quick mode switching**: Press W/E/C to change modes instantly
 - **Smart text cleaning**: Removes tabs, handles separators, preserves lists
+- **Automatic update check**: Notifies you when a new version is available
 - **Continuous operation**: Loop for multiple text entries
 
 ## Installation
