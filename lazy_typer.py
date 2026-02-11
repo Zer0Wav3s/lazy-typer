@@ -9,6 +9,7 @@ import random
 import sys
 import re
 import os
+import shutil
 import subprocess
 import json
 import pyautogui
@@ -92,7 +93,7 @@ WORD_PAUSE_MULTIPLIER = 1.08
 DEFAULT_COUNTDOWN = 5
 
 # Version and update check
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 GITHUB_REPO = "Zer0Wav3s/lazy-typer"
 
 # Calculate base delay
@@ -522,6 +523,10 @@ def check_and_prompt_update():
             print()
             print_info("Restarting with updated version...")
             time.sleep(1)
+            # Clear bytecode cache so Python re-reads the updated source
+            cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '__pycache__')
+            if os.path.isdir(cache_dir):
+                shutil.rmtree(cache_dir)
             os.execv(sys.executable, [sys.executable] + sys.argv)
         else:
             print()
