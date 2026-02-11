@@ -92,7 +92,7 @@ WORD_PAUSE_MULTIPLIER = 1.08
 DEFAULT_COUNTDOWN = 5
 
 # Version and update check
-VERSION = "1.2.0"
+VERSION = "1.1.0"
 GITHUB_REPO = "Zer0Wav3s/lazy-typer"
 
 # Calculate base delay
@@ -474,8 +474,11 @@ def run_git_pull():
             timeout=30
         )
         if result.returncode == 0:
-            print_success("Updated successfully!")
             stdout = result.stdout.strip()
+            if "Already up to date" in stdout:
+                print_info("Already up to date.")
+                return False
+            print_success("Updated successfully!")
             if stdout:
                 print(f"  {Colors.GRAY}{stdout}{Colors.RESET}")
             return True
