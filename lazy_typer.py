@@ -46,7 +46,7 @@ def print_header():
     """Print the application header."""
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}╔═══════════════════════════════════════════════════════╗{Colors.RESET}")
-    print(f"{Colors.CYAN}{Colors.BOLD}║{Colors.RESET}  {Colors.YELLOW}{Colors.BOLD}LAZY TYPER{Colors.RESET} {Colors.DIM}v{VERSION}{Colors.RESET}  {Colors.GRAY}- Human-like typing simulator      {Colors.CYAN}{Colors.BOLD}║{Colors.RESET}")
+    print(f"{Colors.CYAN}{Colors.BOLD}║{Colors.RESET}  {Colors.YELLOW}{Colors.BOLD}LAZY TYPER{Colors.RESET} {Colors.DIM}v{VERSION}{Colors.RESET}  {Colors.GRAY}- Human-like typing simulator    {Colors.CYAN}{Colors.BOLD}║{Colors.RESET}")
     print(f"{Colors.CYAN}{Colors.BOLD}║{Colors.RESET}  {Colors.GRAY}Speed: ~{WPM} WPM with natural variation               {Colors.CYAN}{Colors.BOLD}║{Colors.RESET}")
     print(f"{Colors.CYAN}{Colors.BOLD}╚═══════════════════════════════════════════════════════╝{Colors.RESET}")
     print()
