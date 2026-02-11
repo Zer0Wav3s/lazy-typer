@@ -4,7 +4,7 @@
 
 **Human-Like Typing Simulation for Word, Excel, and More**
 
-[![Version](https://img.shields.io/badge/Version-1.1.1-red?logo=github&logoColor=white)](https://github.com/Zer0Wav3s/lazy-typer/releases)
+[![Version](https://img.shields.io/badge/Version-1.1.2-red?logo=github&logoColor=white)](https://github.com/Zer0Wav3s/lazy-typer/releases)
 [![Python](https://img.shields.io/badge/Python-3.6+-blue?logo=python&logoColor=white)](https://www.python.org)
 [![PyAutoGUI](https://img.shields.io/badge/PyAutoGUI-keyboard_automation-green?logo=python&logoColor=white)](https://pyautogui.readthedocs.io)
 
