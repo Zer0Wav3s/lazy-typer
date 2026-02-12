@@ -239,7 +239,7 @@ def get_multiline_input(first_line: str = None) -> str:
     """Collect multiline text input until two consecutive empty lines."""
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}Paste or type your text below{Colors.RESET}")
-    print(f"{Colors.GRAY}   Press Enter 2 times when done{Colors.RESET}")
+    print(f"{Colors.GRAY}   Press Enter 3 times when done{Colors.RESET}")
     print()
 
     lines = []
