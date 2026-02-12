@@ -117,6 +117,13 @@ def calculate_delay(is_word_boundary: bool = False) -> float:
 
 def clean_text(text: str) -> str:
     """Clean up the text: remove tabs, fix list spacing, handle separators."""
+    # Normalize smart quotes/apostrophes to straight versions
+    text = text.replace('\u2018', "'").replace('\u2019', "'")  # ' '
+    text = text.replace('\u201C', '"').replace('\u201D', '"')  # " "
+
+    # Replace bullet point characters with dashes
+    text = re.sub(r'[•◦▪▸►▻●○■□▶‣⁃∙]', '-', text)
+
     text = text.replace('\t', '')
 
     lines = text.split('\n')
@@ -154,7 +161,7 @@ def clean_text(text: str) -> str:
 
     text = '\n'.join(cleaned_lines)
     text = re.sub(r'(\d+\.)(?!\s)', r'\1 ', text)
-    text = re.sub(r'^([-*•])\s*(?=\S)', r'\1 ', text, flags=re.MULTILINE)
+    text = re.sub(r'^([-*])\s*(?=\S)', r'\1 ', text, flags=re.MULTILINE)
 
     return text.strip()
 
