@@ -42,7 +42,7 @@ python lazy_typer.py
 1. Select your application mode (Word, Excel, or Compress)
 2. Set your countdown timer (1-10 seconds, or Enter for default)
 3. Paste or type your text
-4. Press Enter 3 times to confirm
+4. Press Enter 2 times to confirm
 5. Switch to your target application during the countdown
 6. Text will be typed automatically
 

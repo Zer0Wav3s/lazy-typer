@@ -25,7 +25,7 @@ Single-file application (`lazy_typer.py`) with these sections:
 - **`clean_text()`**: Text preprocessor — normalizes smart quotes to straight quotes, converts Unicode bullets to dashes, removes tabs, converts separator lines, fixes list spacing, preserves paragraph breaks
 - **`type_text()`**: Core typing loop using pyautogui with per-character delays and paragraph break handling
 - **`type_newline()`**: Mode-aware newline handling (Enter for Word, Alt+Enter for Excel)
-- **`get_multiline_input()`**: Multi-line text input with `empty_count` tracker for 2-consecutive-empty-line termination
+- **`get_multiline_input()`**: Multi-line text input that terminates on first empty line
 - **Version check system**: `check_and_prompt_update()` → `check_for_latest_version()` → `arrow_key_select()` → `run_git_pull()`
 - **`main()`**: Startup flow: version check → header → mode selection → countdown → typing loop
 
@@ -40,7 +40,7 @@ Single-file application (`lazy_typer.py`) with these sections:
 - `pyautogui.PAUSE = 0` disables the default 0.1s pause after each pyautogui call (critical for speed)
 - `pyautogui.FAILSAFE = False` prevents corner-trigger interrupts
 - Separator lines (---, ===, ⸻) convert to Enter presses, not typed text
-- Text input terminates on 2 consecutive empty lines (3 Enter presses after last text line)
+- Text input terminates on a single empty line (2 Enter presses: one to end text, one blank to confirm)
 - Single blank lines are preserved as paragraph breaks in typed output
 - Smart quotes (`'`, `'`, `"`, `"`) normalized to straight quotes before typing
 - Unicode bullet characters (`•`, `●`, `◦`, etc.) converted to dashes
@@ -48,7 +48,7 @@ Single-file application (`lazy_typer.py`) with these sections:
 
 ## Gotchas
 
-- **Don't remove `empty_count` logic** in `get_multiline_input()` — it prevents paragraph text from leaking into the menu input buffer
+- **Input terminates on first empty line** in `get_multiline_input()` — blank lines in pasted text will end input early, so paragraph breaks are not preserved
 - **curl not urllib**: Version check uses `curl` via subprocess because Python 3.13 on macOS has SSL certificate verification failures with `urllib.request`
 - **`__pycache__` clearing**: Auto-update runs `shutil.rmtree(__pycache__)` before `os.execv()` restart to prevent stale bytecode from caching the old VERSION
 - **Header box width**: The print_header() box uses fixed-width lines (55 visible chars between `║` delimiters). When changing header text, count visible characters excluding ANSI escape codes
