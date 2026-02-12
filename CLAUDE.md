@@ -40,7 +40,7 @@ Single-file application (`lazy_typer.py`) with these sections:
 - `pyautogui.PAUSE = 0` disables the default 0.1s pause after each pyautogui call (critical for speed)
 - `pyautogui.FAILSAFE = False` prevents corner-trigger interrupts
 - Separator lines (---, ===, ⸻) convert to Enter presses, not typed text
-- Text input terminates on 2 consecutive empty lines (pressing Enter twice on an empty line)
+- Text input terminates on 2 consecutive empty lines (3 Enter presses after last text line)
 - Single blank lines are preserved as paragraph breaks in typed output
 - Smart quotes (`'`, `'`, `"`, `"`) normalized to straight quotes before typing
 - Unicode bullet characters (`•`, `●`, `◦`, etc.) converted to dashes
