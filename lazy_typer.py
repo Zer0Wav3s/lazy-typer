@@ -236,7 +236,7 @@ def type_text(text: str, app_mode: str):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def get_multiline_input(first_line: str = None) -> str:
-    """Collect multiline text input until an empty line is entered."""
+    """Collect multiline text input until two consecutive empty lines."""
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}Paste or type your text below{Colors.RESET}")
     print(f"{Colors.GRAY}   Press Enter 2 times when done{Colors.RESET}")
@@ -249,12 +249,18 @@ def get_multiline_input(first_line: str = None) -> str:
         print(f"   {Colors.DIM}Captured: {preview}{Colors.RESET}")
         lines.append(first_line)
 
+    empty_count = 0
     while True:
         try:
             line = input()
             if line == "":
-                break
-            lines.append(line)
+                empty_count += 1
+                if empty_count >= 2:
+                    break
+                lines.append(line)  # preserve single blank lines (paragraph breaks)
+            else:
+                empty_count = 0
+                lines.append(line)
         except EOFError:
             break
 
