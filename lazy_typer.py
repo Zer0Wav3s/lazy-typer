@@ -123,6 +123,8 @@ def clean_text(text: str) -> str:
 
     # Replace bullet point characters with dashes
     text = re.sub(r'[•◦▪▸►▻●○■□▶‣⁃∙]', '-', text)
+    # Replace em/en dashes used as bullets (at start of line) with regular dashes
+    text = re.sub(r'^[—–]\s*', '- ', text, flags=re.MULTILINE)
 
     text = text.replace('\t', '')
 
