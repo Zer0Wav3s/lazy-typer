@@ -4,7 +4,7 @@
 
 **Human-Like Typing Simulation for Word, Excel, and More**
 
-[![Version](https://img.shields.io/badge/Version-1.2.0-red?logo=github&logoColor=white)](https://github.com/Zer0Wav3s/lazy-typer/releases)
+[![Version](https://img.shields.io/badge/Version-1.2.1-red?logo=github&logoColor=white)](https://github.com/Zer0Wav3s/lazy-typer/releases)
 [![Python](https://img.shields.io/badge/Python-3.6+-blue?logo=python&logoColor=white)](https://www.python.org)
 [![PyAutoGUI](https://img.shields.io/badge/PyAutoGUI-keyboard_automation-green?logo=python&logoColor=white)](https://pyautogui.readthedocs.io)
 
@@ -77,6 +77,8 @@ The script automatically:
 - Removes all tab characters
 - Converts separator lines (---, ===, etc.) to line breaks
 - Preserves paragraph breaks (blank lines between paragraphs)
+- Normalizes smart quotes/apostrophes to straight versions
+- Converts bullet point characters (•, ●, ◦, etc.) to dashes
 - Ensures proper spacing after numbered lists (1. 2. 3.)
 - Preserves bullet points (-, *, etc.)
 
