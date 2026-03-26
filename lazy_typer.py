@@ -93,7 +93,7 @@ WORD_PAUSE_MULTIPLIER = 1.08
 DEFAULT_COUNTDOWN = 5
 
 # Version and update check
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 GITHUB_REPO = "Zer0Wav3s/lazy-typer"
 
 # Calculate base delay
@@ -115,16 +115,31 @@ def calculate_delay(is_word_boundary: bool = False) -> float:
     return delay
 
 
-def clean_text(text: str) -> str:
-    """Clean up the text: remove tabs, fix list spacing, handle separators."""
+def clean_text(text: str, preserve_whitespace: bool = False) -> str:
+    """Clean up the text: remove tabs, fix list spacing, handle separators.
+
+    If preserve_whitespace is True, only normalizes smart quotes and trims
+    trailing blank lines — indentation and alignment are kept intact.
+    """
     # Normalize smart quotes/apostrophes to straight versions
     text = text.replace('\u2018', "'").replace('\u2019', "'")  # ' '
     text = text.replace('\u201C', '"').replace('\u201D', '"')  # " "
+
+    if preserve_whitespace:
+        # Convert tabs to spaces (4-space tab stops) to preserve alignment
+        text = text.expandtabs(4)
+        # Strip trailing blank lines only
+        lines = text.split('\n')
+        while lines and lines[-1].strip() == '':
+            lines.pop()
+        return '\n'.join(lines)
 
     # Replace bullet point characters with dashes
     text = re.sub(r'[•◦▪▸►▻●○■□▶‣⁃∙]', '-', text)
     # Replace em/en dashes used as bullets (at start of line) with regular dashes
     text = re.sub(r'^[—–]\s*', '- ', text, flags=re.MULTILINE)
+    # Replace remaining em/en dashes with regular dashes
+    text = text.replace('—', '-').replace('–', '-')
 
     text = text.replace('\t', '')
 
@@ -189,13 +204,14 @@ def type_newline(app_mode: str):
 
 def type_text(text: str, app_mode: str):
     """Type the given text with human-like delays."""
-    text = clean_text(text)
+    preserve_ws = app_mode == "sql"
+    text = clean_text(text, preserve_whitespace=preserve_ws)
 
     if app_mode == "compress":
         lines = [line for line in text.split('\n') if line != SEPARATOR_MARKER and line != '']
         compressed = ' '.join(lines)
         compressed = re.sub(r'  +', ' ', compressed)
-        compressed = re.sub(r'\.(?=[A-Za-z])', '. ', compressed)
+        compressed = re.sub(r'(?<=[a-z])\.(?=[A-Z])', '. ', compressed)
 
         time.sleep(0.3)
         for char in compressed:
@@ -204,11 +220,57 @@ def type_text(text: str, app_mode: str):
             time.sleep(calculate_delay(is_word_boundary))
         return
 
+    if app_mode == "sql":
+        # SQL/Code mode: preserve formatting with auto-indent clearing.
+        # After Enter, the target app may auto-indent unpredictably.
+        # Instead of guessing, we clear any auto-indent with Home+Shift+End+Delete
+        # then type the exact indentation fresh each line.
+        lines = text.split('\n')
+        time.sleep(0.3)
+
+        for line_idx, line in enumerate(lines):
+            # After any Enter (not the first line), clear auto-indent
+            if line_idx > 0:
+                pyautogui.press('home')
+                time.sleep(0.05)
+                pyautogui.hotkey('shift', 'end')
+                time.sleep(0.05)
+                pyautogui.press('delete')
+                time.sleep(0.05)
+
+            if line.strip() == '':
+                pyautogui.press('enter')
+                time.sleep(calculate_delay())
+                continue
+
+            target_indent = len(line) - len(line.lstrip(' '))
+            rest = line[target_indent:]
+
+            # Type the exact leading spaces
+            for _ in range(target_indent):
+                pyautogui.write(' ', interval=0)
+                time.sleep(calculate_delay(is_word_boundary=True))
+
+            # Type the rest of the line normally
+            for char in rest:
+                pyautogui.write(char, interval=0)
+                is_word_boundary = char == ' '
+                time.sleep(calculate_delay(is_word_boundary))
+
+            if line_idx < len(lines) - 1:
+                time.sleep(calculate_delay())
+                pyautogui.press('enter')
+                time.sleep(calculate_delay())
+        return
+
     lines = text.split('\n')
     time.sleep(0.3)
 
+    in_dash_list = False
+
     for line_idx, line in enumerate(lines):
         if line == SEPARATOR_MARKER:
+            in_dash_list = False
             time.sleep(calculate_delay())
             pyautogui.press('enter')
             time.sleep(calculate_delay())
@@ -216,9 +278,27 @@ def type_text(text: str, app_mode: str):
 
         if line == '':
             # Paragraph break — extra Enter for visual spacing
+            if in_dash_list and app_mode == "word":
+                # End Word's auto-list by pressing Enter once more
+                type_newline(app_mode)
+            in_dash_list = False
             type_newline(app_mode)
             time.sleep(calculate_delay())
             continue
+
+        is_dash_item = line.startswith('- ')
+
+        if app_mode == "word" and is_dash_item and in_dash_list:
+            # Word auto-continues the dash list, skip the leading "- "
+            line = line[2:]
+
+        if is_dash_item:
+            in_dash_list = True
+        else:
+            if in_dash_list and app_mode == "word":
+                # Leaving a dash list — press Enter to end Word's auto-list
+                type_newline(app_mode)
+            in_dash_list = False
 
         for char in line:
             pyautogui.write(char, interval=0)
@@ -281,12 +361,15 @@ def get_app_mode() -> str:
         print(f"  {Colors.YELLOW}[E]{Colors.RESET}  {Colors.WHITE}Microsoft Excel{Colors.RESET}")
         print(f"       {Colors.GRAY}Alt+Enter for in-cell line breaks{Colors.RESET}")
         print()
+        print(f"  {Colors.YELLOW}[S]{Colors.RESET}  {Colors.WHITE}SQL / Code Mode{Colors.RESET}")
+        print(f"       {Colors.GRAY}Preserves indentation and alignment{Colors.RESET}")
+        print()
         print(f"  {Colors.YELLOW}[C]{Colors.RESET}  {Colors.WHITE}Compress Mode{Colors.RESET}")
         print(f"       {Colors.GRAY}All text on one line, no line breaks{Colors.RESET}")
         print_divider()
         print(f"  {Colors.GRAY}Press Ctrl+C to quit{Colors.RESET}")
 
-        choice = input(f"\n{Colors.CYAN}Enter choice (W/E/C):{Colors.RESET} ").strip().lower()
+        choice = input(f"\n{Colors.CYAN}Enter choice (W/E/S/C):{Colors.RESET} ").strip().lower()
 
         if choice in ('w', 'word'):
             print_success("Mode set: Microsoft Word")
@@ -294,11 +377,14 @@ def get_app_mode() -> str:
         elif choice in ('e', 'excel'):
             print_success("Mode set: Microsoft Excel")
             return "excel"
+        elif choice in ('s', 'sql'):
+            print_success("Mode set: SQL / Code (preserves formatting)")
+            return "sql"
         elif choice in ('c', 'compress'):
             print_success("Mode set: Compress (single line)")
             return "compress"
         else:
-            print_error("Invalid choice. Please enter W, E, or C.")
+            print_error("Invalid choice. Please enter W, E, S, or C.")
 
 
 def show_ready_message(char_count: int, word_count: int, estimated_time: float):
@@ -315,7 +401,7 @@ def show_ready_message(char_count: int, word_count: int, estimated_time: float):
 
 def show_done_message(app_mode: str):
     """Show the completion message with current mode."""
-    mode_display = {"word": "Word", "excel": "Excel", "compress": "Compress"}
+    mode_display = {"word": "Word", "excel": "Excel", "sql": "SQL / Code", "compress": "Compress"}
     mode_name = mode_display.get(app_mode, app_mode)
     print()
     print(f"{Colors.GREEN}{Colors.BOLD}╔═══════════════════════════════════════════════════════╗{Colors.RESET}")
@@ -353,13 +439,13 @@ def get_countdown() -> int:
 
 def show_menu(countdown_seconds: int, app_mode: str):
     """Show the options menu."""
-    mode_display = {"word": "Word", "excel": "Excel", "compress": "Compress"}
+    mode_display = {"word": "Word", "excel": "Excel", "sql": "SQL / Code", "compress": "Compress"}
     mode_name = mode_display.get(app_mode, app_mode)
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}What's next?{Colors.RESET}")
     print_divider()
     print(f"  {Colors.YELLOW}[Enter]{Colors.RESET}  Type more text")
-    print(f"  {Colors.YELLOW}[W/E/C]{Colors.RESET}  Switch mode ({mode_name})")
+    print(f"  {Colors.YELLOW}[W/E/S/C]{Colors.RESET}  Switch mode ({mode_name})")
     print(f"  {Colors.YELLOW}[T]{Colors.RESET}      Change countdown timer ({countdown_seconds}s)")
     print(f"  {Colors.YELLOW}[Q]{Colors.RESET}      Quit")
     print(f"  {Colors.GRAY}Or just paste your next text directly!{Colors.RESET}")
@@ -565,7 +651,8 @@ def main():
             print_warning("No text entered. Try again or type 'quit' to exit.")
             continue
 
-        cleaned = clean_text(text)
+        preserve_ws = app_mode == "sql"
+        cleaned = clean_text(text, preserve_whitespace=preserve_ws)
         char_count = len(cleaned)
         word_count = len(cleaned.split())
         estimated_time = char_count * BASE_DELAY
@@ -588,6 +675,9 @@ def main():
         elif choice.lower() in ('e', 'excel'):
             app_mode = "excel"
             print_success("Mode set: Microsoft Excel")
+        elif choice.lower() in ('s', 'sql'):
+            app_mode = "sql"
+            print_success("Mode set: SQL / Code (preserves formatting)")
         elif choice.lower() in ('c', 'compress'):
             app_mode = "compress"
             print_success("Mode set: Compress (single line)")
@@ -600,7 +690,7 @@ def main():
         else:
             text = get_multiline_input(first_line=choice)
             if text.strip():
-                cleaned = clean_text(text)
+                cleaned = clean_text(text, preserve_whitespace=(app_mode == "sql"))
                 char_count = len(cleaned)
                 word_count = len(cleaned.split())
                 estimated_time = char_count * BASE_DELAY
