@@ -204,7 +204,7 @@ def type_newline(app_mode: str):
 
 def type_text(text: str, app_mode: str):
     """Type the given text with human-like delays."""
-    preserve_ws = app_mode == "sql"
+    preserve_ws = app_mode in ("sql", "text")
     text = clean_text(text, preserve_whitespace=preserve_ws)
 
     if app_mode == "compress":
@@ -263,6 +263,29 @@ def type_text(text: str, app_mode: str):
                 time.sleep(calculate_delay())
         return
 
+    if app_mode == "text":
+        # Plain Text mode: type everything exactly as-is.
+        # No separator conversion, no bullet handling, just raw text with Enter.
+        lines = text.split('\n')
+        time.sleep(0.3)
+
+        for line_idx, line in enumerate(lines):
+            if line == '':
+                pyautogui.press('enter')
+                time.sleep(calculate_delay())
+                continue
+
+            for char in line:
+                pyautogui.write(char, interval=0)
+                is_word_boundary = char == ' '
+                time.sleep(calculate_delay(is_word_boundary))
+
+            if line_idx < len(lines) - 1:
+                time.sleep(calculate_delay())
+                pyautogui.press('enter')
+                time.sleep(calculate_delay())
+        return
+
     lines = text.split('\n')
     time.sleep(0.3)
 
@@ -271,9 +294,14 @@ def type_text(text: str, app_mode: str):
     for line_idx, line in enumerate(lines):
         if line == SEPARATOR_MARKER:
             in_dash_list = False
-            time.sleep(calculate_delay())
-            pyautogui.press('enter')
-            time.sleep(calculate_delay())
+            # Type the separator as visible text (---) instead of just a blank line
+            for char in '---':
+                pyautogui.write(char, interval=0)
+                time.sleep(calculate_delay())
+            if line_idx < len(lines) - 1:
+                time.sleep(calculate_delay())
+                type_newline(app_mode)
+                time.sleep(calculate_delay())
             continue
 
         if line == '':
@@ -361,15 +389,18 @@ def get_app_mode() -> str:
         print(f"  {Colors.YELLOW}[E]{Colors.RESET}  {Colors.WHITE}Microsoft Excel{Colors.RESET}")
         print(f"       {Colors.GRAY}Alt+Enter for in-cell line breaks{Colors.RESET}")
         print()
+        print(f"  {Colors.YELLOW}[T]{Colors.RESET}  {Colors.WHITE}Plain Text{Colors.RESET}")
+        print(f"       {Colors.GRAY}Exact copy - preserves all formatting{Colors.RESET}")
+        print()
         print(f"  {Colors.YELLOW}[S]{Colors.RESET}  {Colors.WHITE}SQL / Code Mode{Colors.RESET}")
-        print(f"       {Colors.GRAY}Preserves indentation and alignment{Colors.RESET}")
+        print(f"       {Colors.GRAY}Preserves indentation, clears auto-indent{Colors.RESET}")
         print()
         print(f"  {Colors.YELLOW}[C]{Colors.RESET}  {Colors.WHITE}Compress Mode{Colors.RESET}")
         print(f"       {Colors.GRAY}All text on one line, no line breaks{Colors.RESET}")
         print_divider()
         print(f"  {Colors.GRAY}Press Ctrl+C to quit{Colors.RESET}")
 
-        choice = input(f"\n{Colors.CYAN}Enter choice (W/E/S/C):{Colors.RESET} ").strip().lower()
+        choice = input(f"\n{Colors.CYAN}Enter choice (W/E/T/S/C):{Colors.RESET} ").strip().lower()
 
         if choice in ('w', 'word'):
             print_success("Mode set: Microsoft Word")
@@ -377,6 +408,9 @@ def get_app_mode() -> str:
         elif choice in ('e', 'excel'):
             print_success("Mode set: Microsoft Excel")
             return "excel"
+        elif choice in ('t', 'text'):
+            print_success("Mode set: Plain Text (exact copy)")
+            return "text"
         elif choice in ('s', 'sql'):
             print_success("Mode set: SQL / Code (preserves formatting)")
             return "sql"
@@ -384,7 +418,7 @@ def get_app_mode() -> str:
             print_success("Mode set: Compress (single line)")
             return "compress"
         else:
-            print_error("Invalid choice. Please enter W, E, S, or C.")
+            print_error("Invalid choice. Please enter W, E, T, S, or C.")
 
 
 def show_ready_message(char_count: int, word_count: int, estimated_time: float):
@@ -401,7 +435,7 @@ def show_ready_message(char_count: int, word_count: int, estimated_time: float):
 
 def show_done_message(app_mode: str):
     """Show the completion message with current mode."""
-    mode_display = {"word": "Word", "excel": "Excel", "sql": "SQL / Code", "compress": "Compress"}
+    mode_display = {"word": "Word", "excel": "Excel", "text": "Plain Text", "sql": "SQL / Code", "compress": "Compress"}
     mode_name = mode_display.get(app_mode, app_mode)
     print()
     print(f"{Colors.GREEN}{Colors.BOLD}╔═══════════════════════════════════════════════════════╗{Colors.RESET}")
@@ -439,13 +473,13 @@ def get_countdown() -> int:
 
 def show_menu(countdown_seconds: int, app_mode: str):
     """Show the options menu."""
-    mode_display = {"word": "Word", "excel": "Excel", "sql": "SQL / Code", "compress": "Compress"}
+    mode_display = {"word": "Word", "excel": "Excel", "text": "Plain Text", "sql": "SQL / Code", "compress": "Compress"}
     mode_name = mode_display.get(app_mode, app_mode)
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}What's next?{Colors.RESET}")
     print_divider()
     print(f"  {Colors.YELLOW}[Enter]{Colors.RESET}  Type more text")
-    print(f"  {Colors.YELLOW}[W/E/S/C]{Colors.RESET}  Switch mode ({mode_name})")
+    print(f"  {Colors.YELLOW}[W/E/T/S/C]{Colors.RESET}  Switch mode ({mode_name})")
     print(f"  {Colors.YELLOW}[T]{Colors.RESET}      Change countdown timer ({countdown_seconds}s)")
     print(f"  {Colors.YELLOW}[Q]{Colors.RESET}      Quit")
     print(f"  {Colors.GRAY}Or just paste your next text directly!{Colors.RESET}")
@@ -675,6 +709,9 @@ def main():
         elif choice.lower() in ('e', 'excel'):
             app_mode = "excel"
             print_success("Mode set: Microsoft Excel")
+        elif choice.lower() in ('t', 'text'):
+            app_mode = "text"
+            print_success("Mode set: Plain Text (exact copy)")
         elif choice.lower() in ('s', 'sql'):
             app_mode = "sql"
             print_success("Mode set: SQL / Code (preserves formatting)")
@@ -690,7 +727,7 @@ def main():
         else:
             text = get_multiline_input(first_line=choice)
             if text.strip():
-                cleaned = clean_text(text, preserve_whitespace=(app_mode == "sql"))
+                cleaned = clean_text(text, preserve_whitespace=(app_mode in ("sql", "text")))
                 char_count = len(cleaned)
                 word_count = len(cleaned.split())
                 estimated_time = char_count * BASE_DELAY
