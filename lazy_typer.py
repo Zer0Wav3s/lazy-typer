@@ -115,15 +115,32 @@ def calculate_delay(is_word_boundary: bool = False) -> float:
     return delay
 
 
-def type_char(char: str):
-    """Type a single character, using clipboard paste for non-ASCII."""
-    if char.isascii():
-        pyautogui.write(char, interval=0)
-    else:
-        # pyautogui.write() can't handle Unicode — use clipboard + Cmd+V
-        subprocess.run(['pbcopy'], input=char.encode('utf-8'), check=True)
-        pyautogui.hotkey('command', 'v')
-        time.sleep(0.02)  # brief pause for paste to register
+def type_string(text: str):
+    """Type a string with human-like delays, handling Unicode via clipboard paste.
+
+    ASCII characters are typed one at a time via pyautogui.
+    Consecutive non-ASCII characters are batched into a single clipboard paste
+    to avoid Command key bleed-through issues.
+    """
+    i = 0
+    while i < len(text):
+        if text[i].isascii():
+            pyautogui.write(text[i], interval=0)
+            time.sleep(calculate_delay(is_word_boundary=(text[i] == ' ')))
+            i += 1
+        else:
+            # Batch consecutive non-ASCII characters into one paste
+            start = i
+            while i < len(text) and not text[i].isascii():
+                i += 1
+            batch = text[start:i]
+            subprocess.run(['pbcopy'], input=batch.encode('utf-8'), check=True)
+            time.sleep(0.05)  # ensure clipboard is ready
+            pyautogui.hotkey('command', 'v')
+            time.sleep(0.15)  # ensure paste completes and Command key fully releases
+            # Simulate natural typing delay for the batch length
+            for _ in range(len(batch) - 1):
+                time.sleep(calculate_delay())
 
 
 def clean_text(text: str, preserve_whitespace: bool = False) -> str:
@@ -225,10 +242,7 @@ def type_text(text: str, app_mode: str):
         compressed = re.sub(r'(?<=[a-z])\.(?=[A-Z])', '. ', compressed)
 
         time.sleep(0.3)
-        for char in compressed:
-            type_char(char)
-            is_word_boundary = char == ' '
-            time.sleep(calculate_delay(is_word_boundary))
+        type_string(compressed)
         return
 
     if app_mode == "sql":
@@ -263,10 +277,7 @@ def type_text(text: str, app_mode: str):
                 time.sleep(calculate_delay(is_word_boundary=True))
 
             # Type the rest of the line normally
-            for char in rest:
-                type_char(char)
-                is_word_boundary = char == ' '
-                time.sleep(calculate_delay(is_word_boundary))
+            type_string(rest)
 
             if line_idx < len(lines) - 1:
                 time.sleep(calculate_delay())
@@ -286,10 +297,7 @@ def type_text(text: str, app_mode: str):
                 time.sleep(calculate_delay())
                 continue
 
-            for char in line:
-                type_char(char)
-                is_word_boundary = char == ' '
-                time.sleep(calculate_delay(is_word_boundary))
+            type_string(line)
 
             if line_idx < len(lines) - 1:
                 time.sleep(calculate_delay())
@@ -306,9 +314,7 @@ def type_text(text: str, app_mode: str):
         if line == SEPARATOR_MARKER:
             in_dash_list = False
             # Type the separator as visible text (---) instead of just a blank line
-            for char in '---':
-                type_char(char)
-                time.sleep(calculate_delay())
+            type_string('---')
             if line_idx < len(lines) - 1:
                 time.sleep(calculate_delay())
                 type_newline(app_mode)
@@ -339,10 +345,7 @@ def type_text(text: str, app_mode: str):
                 type_newline(app_mode)
             in_dash_list = False
 
-        for char in line:
-            type_char(char)
-            is_word_boundary = char == ' '
-            time.sleep(calculate_delay(is_word_boundary))
+        type_string(line)
 
         if line_idx < len(lines) - 1:
             next_line = lines[line_idx + 1] if line_idx + 1 < len(lines) else ""
