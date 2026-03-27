@@ -115,6 +115,17 @@ def calculate_delay(is_word_boundary: bool = False) -> float:
     return delay
 
 
+def type_char(char: str):
+    """Type a single character, using clipboard paste for non-ASCII."""
+    if char.isascii():
+        pyautogui.write(char, interval=0)
+    else:
+        # pyautogui.write() can't handle Unicode — use clipboard + Cmd+V
+        subprocess.run(['pbcopy'], input=char.encode('utf-8'), check=True)
+        pyautogui.hotkey('command', 'v')
+        time.sleep(0.02)  # brief pause for paste to register
+
+
 def clean_text(text: str, preserve_whitespace: bool = False) -> str:
     """Clean up the text: remove tabs, fix list spacing, handle separators.
 
@@ -215,7 +226,7 @@ def type_text(text: str, app_mode: str):
 
         time.sleep(0.3)
         for char in compressed:
-            pyautogui.write(char, interval=0)
+            type_char(char)
             is_word_boundary = char == ' '
             time.sleep(calculate_delay(is_word_boundary))
         return
@@ -253,7 +264,7 @@ def type_text(text: str, app_mode: str):
 
             # Type the rest of the line normally
             for char in rest:
-                pyautogui.write(char, interval=0)
+                type_char(char)
                 is_word_boundary = char == ' '
                 time.sleep(calculate_delay(is_word_boundary))
 
@@ -276,7 +287,7 @@ def type_text(text: str, app_mode: str):
                 continue
 
             for char in line:
-                pyautogui.write(char, interval=0)
+                type_char(char)
                 is_word_boundary = char == ' '
                 time.sleep(calculate_delay(is_word_boundary))
 
@@ -296,7 +307,7 @@ def type_text(text: str, app_mode: str):
             in_dash_list = False
             # Type the separator as visible text (---) instead of just a blank line
             for char in '---':
-                pyautogui.write(char, interval=0)
+                type_char(char)
                 time.sleep(calculate_delay())
             if line_idx < len(lines) - 1:
                 time.sleep(calculate_delay())
@@ -329,7 +340,7 @@ def type_text(text: str, app_mode: str):
             in_dash_list = False
 
         for char in line:
-            pyautogui.write(char, interval=0)
+            type_char(char)
             is_word_boundary = char == ' '
             time.sleep(calculate_delay(is_word_boundary))
 
