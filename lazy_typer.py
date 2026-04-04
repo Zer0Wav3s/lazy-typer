@@ -93,7 +93,7 @@ WORD_PAUSE_MULTIPLIER = 1.08
 DEFAULT_COUNTDOWN = 5
 
 # Version and update check
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 GITHUB_REPO = "Zer0Wav3s/lazy-typer"
 
 # Calculate base delay
