@@ -32,8 +32,19 @@ Single-file application (`lazy_typer.py`) with these sections:
 ## Application Modes
 
 - **Word**: Standard Enter key for newlines
-- **Excel**: Alt+Enter for in-cell line breaks
+- **Excel - Single Cell**: Alt+Enter for in-cell line breaks; everything lands in one cell
+- **Excel - Table / Grid**: Tab between cells, Enter at row end (Excel returns to the starting column). Cells pass through `normalize_cell()` first
+- **Plain Text**: Exact 1:1 copy, only smart quotes normalized
+- **SQL / Code**: Preserves indentation, clears the editor's auto-indent per line
 - **Compress**: All text on single line, no line breaks
+
+## Table Mode Notes
+
+- `parse_table()` auto-detects the delimiter: markdown `|` → tabs → 2+ spaces
+- `is_grid_paste()` is deliberately stricter than `parse_table()` — tabs or pipes only, 2+ rows. It gates the Excel-mode auto-route, where a false positive would silently type into the wrong cells
+- `resolve_mode()` routes Excel mode to table mode for grid pastes and prints a notice. Never make this silent
+- `normalize_cell()` ASCII-izes cells so `type_string()` avoids its clipboard-paste path, which is slow and briefly hijacks the user's clipboard
+- Merged cells in the target sheet break the Tab/Enter alignment — an Excel constraint, not fixable here
 
 ## Key Implementation Details
 

@@ -15,10 +15,10 @@
 ## Features
 
 - **Human-like typing** at ~250 WPM with natural variation
-- **Five application modes**: Word, Excel, Plain Text, SQL/Code, and Compress
+- **Six application modes**: Word, Excel Single Cell, Excel Table/Grid, Plain Text, SQL/Code, and Compress
 - **Unicode support**: Handles non-ASCII characters (circled letters, symbols, etc.) via clipboard paste
 - **Adjustable countdown timer**: Set between 1-10 seconds
-- **Quick mode switching**: Press W/E/T/S/C to change modes instantly
+- **Quick mode switching**: Press W/E/B/T/S/C to change modes instantly
 - **Smart text cleaning**: Removes tabs, handles separators, preserves lists
 - **Automatic update check**: Notifies you when a new version is available
 - **Continuous operation**: Loop for multiple text entries
@@ -40,7 +40,7 @@ pip install -r requirements.txt
 python lazy_typer.py
 ```
 
-1. Select your application mode (Word, Excel, Plain Text, SQL/Code, or Compress)
+1. Select your application mode (Word, Excel Single Cell, Excel Table/Grid, Plain Text, SQL/Code, or Compress)
 2. Set your countdown timer (1-10 seconds, or Enter for default)
 3. Paste or type your text
 4. Press Enter 3 times to confirm
@@ -48,8 +48,8 @@ python lazy_typer.py
 6. Text will be typed automatically
 
 After typing completes, use these shortcuts:
-- **W/E/T/S/C** - Switch mode directly
-- **T** - Change countdown timer
+- **W/E/B/T/S/C** - Switch mode directly
+- **A number** - Change countdown timer
 - **Q** - Quit
 
 ## Modes
@@ -57,7 +57,8 @@ After typing completes, use these shortcuts:
 | Mode | Newline Behavior | Use Case |
 |------|------------------|----------|
 | **Word** | Enter key | Microsoft Word, text editors |
-| **Excel** | Alt+Enter | In-cell line breaks in Excel |
+| **Excel - Single Cell** | Alt+Enter | All text into one Excel cell |
+| **Excel - Table / Grid** | Tab between cells, Enter per row | Filling a range of Excel cells |
 | **Plain Text** | Enter key | Exact copy with all formatting preserved |
 | **SQL / Code** | Enter + auto-indent clearing | SQL editors, IDEs with auto-indent |
 | **Compress** | No line breaks | Single-line output |
@@ -65,7 +66,8 @@ After typing completes, use these shortcuts:
 ### Mode Details
 
 - **Word**: Standard typing with Enter for newlines. Smart text cleaning converts separators, normalizes quotes, and handles bullet lists. Separator lines (---, ===) are typed as visible `---` text.
-- **Excel**: Same as Word but uses Alt+Enter for in-cell line breaks.
+- **Excel - Single Cell**: Same as Word but uses Alt+Enter for in-cell line breaks, so the entire input lands inside the one cell you start in. If you paste a tab-delimited or markdown table into this mode, it detects the grid and automatically switches to Table/Grid for that paste.
+- **Excel - Table / Grid**: Fills a range of cells. Auto-detects the column delimiter — markdown `|`, tabs, or 2+ spaces — then types **Tab** between cells and **Enter** at the end of each row, which returns Excel to the column you started in. Click the top-left target cell before the countdown ends. `<br>` inside a cell becomes an Alt+Enter in-cell line break. Cells are ASCII-normalized first: arrows (`→`) become ` - `, em/en dashes and bullets become `-`, so typing stays pure keystrokes.
 - **Plain Text**: Types everything exactly as entered — no separator conversion, no bullet handling. Only smart quotes are normalized. Ideal when you want a 1:1 copy of your input.
 - **SQL / Code**: Preserves indentation and alignment. After each Enter, clears any auto-indent the target editor may add, then types the exact leading spaces from your original text. Perfect for pasting formatted SQL or code into editors that auto-indent.
 - **Compress**: Joins all lines into a single line with no line breaks. Useful for single-line input fields.

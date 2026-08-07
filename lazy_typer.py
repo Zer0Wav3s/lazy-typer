@@ -102,6 +102,16 @@ BASE_DELAY = 60.0 / (WPM * CHARS_PER_WORD)
 # Special marker for separator-based line breaks
 SEPARATOR_MARKER = '\x00SEP\x00'
 
+# Human-readable mode names, shared by every place that displays one
+MODE_DISPLAY = {
+    "word": "Word",
+    "excel": "Excel - Single Cell",
+    "table": "Excel - Table / Grid",
+    "text": "Plain Text",
+    "sql": "SQL / Code",
+    "compress": "Compress",
+}
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CORE FUNCTIONS
@@ -134,10 +144,27 @@ def type_string(text: str):
             while i < len(text) and not text[i].isascii():
                 i += 1
             batch = text[start:i]
-            subprocess.run(['pbcopy'], input=batch.encode('utf-8'), check=True)
-            time.sleep(0.05)  # ensure clipboard is ready
+            # Save the user's existing clipboard so we can restore it after
+            try:
+                saved_clipboard = subprocess.run(
+                    ['pbpaste'], capture_output=True, check=True
+                ).stdout
+            except subprocess.CalledProcessError:
+                saved_clipboard = b''
+            batch_bytes = batch.encode('utf-8')
+            subprocess.run(['pbcopy'], input=batch_bytes, check=True)
+            # Poll pbpaste until the clipboard actually reflects our batch —
+            # pbcopy can return before the pasteboard server has committed.
+            deadline = time.monotonic() + 1.0
+            while time.monotonic() < deadline:
+                current = subprocess.run(['pbpaste'], capture_output=True).stdout
+                if current == batch_bytes:
+                    break
+                time.sleep(0.01)
             pyautogui.hotkey('command', 'v')
             time.sleep(0.15)  # ensure paste completes and Command key fully releases
+            # Restore the user's original clipboard
+            subprocess.run(['pbcopy'], input=saved_clipboard, check=False)
             # Simulate natural typing delay for the batch length
             for _ in range(len(batch) - 1):
                 time.sleep(calculate_delay())
@@ -230,8 +257,154 @@ def type_newline(app_mode: str):
         pyautogui.press('enter')
 
 
+def parse_table(text: str) -> list:
+    """Parse a table into a list of rows, each a list of cell strings.
+
+    Auto-detects the delimiter in priority order:
+      1. Pipe `|` (markdown table — line must start with `|`)
+      2. Tab `\\t` (Excel/Word/HTML paste)
+      3. Two or more consecutive spaces (text dump fallback)
+
+    The markdown alignment row (e.g. `|---|:---:|`) is filtered out.
+    """
+    lines = text.split('\n')
+    align_re = re.compile(r'^:?-+:?$')
+
+    # Strategy 1: pipe-delimited markdown
+    pipe_rows = []
+    for line in lines:
+        s = line.strip()
+        if not s.startswith('|'):
+            continue
+        inner = s[1:]
+        if inner.endswith('|'):
+            inner = inner[:-1]
+        cells = [c.strip() for c in inner.split('|')]
+        non_empty = [c for c in cells if c]
+        if non_empty and all(align_re.match(c) for c in non_empty):
+            continue
+        if non_empty:
+            pipe_rows.append(cells)
+    if pipe_rows:
+        return pipe_rows
+
+    # Strategy 2: tab-delimited
+    tab_rows = []
+    for line in lines:
+        if '\t' in line:
+            cells = [c.strip() for c in line.split('\t')]
+            if any(cells):
+                tab_rows.append(cells)
+    if tab_rows:
+        return tab_rows
+
+    # Strategy 3: 2+ consecutive spaces
+    space_re = re.compile(r' {2,}')
+    space_rows = []
+    for line in lines:
+        s = line.strip()
+        if not s or not space_re.search(s):
+            continue
+        cells = [c.strip() for c in space_re.split(s) if c.strip()]
+        if cells:
+            space_rows.append(cells)
+    if space_rows:
+        return space_rows
+
+    return []
+
+
+def is_grid_paste(text: str) -> bool:
+    """True if the text is unambiguously a multi-row table.
+
+    Deliberately stricter than parse_table(): only real tabs or markdown pipes
+    count, and 2+ rows are required. This gates the Excel-mode auto-route,
+    where a false positive would silently type into the wrong cells.
+    """
+    lines = [l for l in text.split('\n') if l.strip()]
+    tabbed = sum(1 for l in lines if '\t' in l)
+    piped = sum(1 for l in lines if l.strip().startswith('|'))
+    return tabbed >= 2 or piped >= 2
+
+
+# Arrows used as range separators (e.g. "21-Sep → 12-Oct")
+ARROW_RE = re.compile(r'\s*[→⟶⇒➜➔➝➞➟➠⇾]\s*')
+
+
+def normalize_cell(cell: str) -> str:
+    """Reduce a table cell to pure ASCII wherever there's a sane equivalent.
+
+    Arrows become " - ", em/en dashes and bullets become "-", smart quotes
+    become straight quotes. This keeps cells typeable as plain keystrokes so
+    type_string() never falls back to the clipboard-paste path, which is slow
+    and briefly takes over the user's clipboard. Anything without an ASCII
+    equivalent is left alone and still pastes correctly.
+    """
+    cell = cell.replace('‘', "'").replace('’', "'")
+    cell = cell.replace('“', '"').replace('”', '"')
+    cell = ARROW_RE.sub(' - ', cell)
+    cell = re.sub(r'[—–]', '-', cell)
+    cell = re.sub(r'[•◦▪▸►▻●○■□▶‣⁃∙]', '-', cell)
+    return re.sub(r'[ \t]+', ' ', cell).strip()
+
+
+def type_table(text: str):
+    """Type a table cell-by-cell into Excel.
+
+    Position the cursor in the desired top-left cell before the countdown
+    ends. Between cells: Tab. After the last cell of each row: Enter — Excel
+    returns the cursor to the column where the Tab sequence started, so each
+    new row begins under the original starting column. `<br>` inside a cell
+    becomes Alt+Enter (in-cell line break). Cells are ASCII-normalized first
+    (see normalize_cell) so typing stays pure keystrokes.
+    """
+    rows = parse_table(text)
+    if not rows:
+        return
+
+    br_re = re.compile(r'<br\s*/?>', re.IGNORECASE)
+    time.sleep(0.3)
+
+    for row in rows:
+        for cell_idx, cell in enumerate(row):
+            parts = br_re.split(normalize_cell(cell))
+            for part_idx, part in enumerate(parts):
+                if part:
+                    type_string(part)
+                if part_idx < len(parts) - 1:
+                    pyautogui.hotkey('alt', 'enter')
+                    time.sleep(0.05)
+
+            if cell_idx < len(row) - 1:
+                pyautogui.press('tab')
+            else:
+                pyautogui.press('enter')
+            time.sleep(calculate_delay())
+
+
+def resolve_mode(text: str, app_mode: str) -> str:
+    """Pick the mode actually used for this paste.
+
+    Excel (single cell) mode given a real grid is almost always a mis-pick —
+    it would cram the whole table into one cell via Alt+Enter. Route it to
+    table mode instead and say so, rather than silently doing the wrong thing.
+    """
+    if app_mode == "excel" and is_grid_paste(text) and parse_table(text):
+        print()
+        print_info(
+            f"Detected a table — switching to {Colors.CYAN}Excel Table/Grid{Colors.RESET} "
+            f"for this paste {Colors.GRAY}(use [E] with plain text for single-cell){Colors.RESET}"
+        )
+        return "table"
+    return app_mode
+
+
 def type_text(text: str, app_mode: str):
     """Type the given text with human-like delays."""
+    if app_mode == "table":
+        type_table(text)
+        return
+
     preserve_ws = app_mode in ("sql", "text")
     text = clean_text(text, preserve_whitespace=preserve_ws)
 
@@ -400,8 +573,11 @@ def get_app_mode() -> str:
         print(f"  {Colors.YELLOW}[W]{Colors.RESET}  {Colors.WHITE}Microsoft Word{Colors.RESET}")
         print(f"       {Colors.GRAY}Enter for line breaks{Colors.RESET}")
         print()
-        print(f"  {Colors.YELLOW}[E]{Colors.RESET}  {Colors.WHITE}Microsoft Excel{Colors.RESET}")
-        print(f"       {Colors.GRAY}Alt+Enter for in-cell line breaks{Colors.RESET}")
+        print(f"  {Colors.YELLOW}[E]{Colors.RESET}  {Colors.WHITE}Excel - Single Cell{Colors.RESET}")
+        print(f"       {Colors.GRAY}All text into ONE cell, Alt+Enter line breaks{Colors.RESET}")
+        print()
+        print(f"  {Colors.YELLOW}[B]{Colors.RESET}  {Colors.WHITE}Excel - Table / Grid{Colors.RESET}")
+        print(f"       {Colors.GRAY}Fills MANY cells: Tab between, Enter per row{Colors.RESET}")
         print()
         print(f"  {Colors.YELLOW}[T]{Colors.RESET}  {Colors.WHITE}Plain Text{Colors.RESET}")
         print(f"       {Colors.GRAY}Exact copy - preserves all formatting{Colors.RESET}")
@@ -414,14 +590,17 @@ def get_app_mode() -> str:
         print_divider()
         print(f"  {Colors.GRAY}Press Ctrl+C to quit{Colors.RESET}")
 
-        choice = input(f"\n{Colors.CYAN}Enter choice (W/E/T/S/C):{Colors.RESET} ").strip().lower()
+        choice = input(f"\n{Colors.CYAN}Enter choice (W/E/B/T/S/C):{Colors.RESET} ").strip().lower()
 
         if choice in ('w', 'word'):
             print_success("Mode set: Microsoft Word")
             return "word"
         elif choice in ('e', 'excel'):
-            print_success("Mode set: Microsoft Excel")
+            print_success("Mode set: Excel - Single Cell")
             return "excel"
+        elif choice in ('b', 'table'):
+            print_success("Mode set: Excel - Table / Grid")
+            return "table"
         elif choice in ('t', 'text'):
             print_success("Mode set: Plain Text (exact copy)")
             return "text"
@@ -432,7 +611,7 @@ def get_app_mode() -> str:
             print_success("Mode set: Compress (single line)")
             return "compress"
         else:
-            print_error("Invalid choice. Please enter W, E, T, S, or C.")
+            print_error("Invalid choice. Please enter W, E, B, T, S, or C.")
 
 
 def show_ready_message(char_count: int, word_count: int, estimated_time: float):
@@ -449,8 +628,7 @@ def show_ready_message(char_count: int, word_count: int, estimated_time: float):
 
 def show_done_message(app_mode: str):
     """Show the completion message with current mode."""
-    mode_display = {"word": "Word", "excel": "Excel", "text": "Plain Text", "sql": "SQL / Code", "compress": "Compress"}
-    mode_name = mode_display.get(app_mode, app_mode)
+    mode_name = MODE_DISPLAY.get(app_mode, app_mode)
     print()
     print(f"{Colors.GREEN}{Colors.BOLD}╔═══════════════════════════════════════════════════════╗{Colors.RESET}")
     print(f"{Colors.GREEN}{Colors.BOLD}║          Done! Text has been typed.                   ║{Colors.RESET}")
@@ -487,14 +665,13 @@ def get_countdown() -> int:
 
 def show_menu(countdown_seconds: int, app_mode: str):
     """Show the options menu."""
-    mode_display = {"word": "Word", "excel": "Excel", "text": "Plain Text", "sql": "SQL / Code", "compress": "Compress"}
-    mode_name = mode_display.get(app_mode, app_mode)
+    mode_name = MODE_DISPLAY.get(app_mode, app_mode)
     print()
     print(f"{Colors.CYAN}{Colors.BOLD}What's next?{Colors.RESET}")
     print_divider()
     print(f"  {Colors.YELLOW}[Enter]{Colors.RESET}  Type more text")
-    print(f"  {Colors.YELLOW}[W/E/T/S/C]{Colors.RESET}  Switch mode ({mode_name})")
-    print(f"  {Colors.YELLOW}[T]{Colors.RESET}      Change countdown timer ({countdown_seconds}s)")
+    print(f"  {Colors.YELLOW}[W/E/B/T/S/C]{Colors.RESET}  Switch mode ({mode_name})")
+    print(f"  {Colors.YELLOW}[#]{Colors.RESET}      Change countdown timer ({countdown_seconds}s)")
     print(f"  {Colors.YELLOW}[Q]{Colors.RESET}      Quit")
     print(f"  {Colors.GRAY}Or just paste your next text directly!{Colors.RESET}")
     print_divider()
@@ -717,6 +894,26 @@ def check_and_prompt_update():
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def run_typing_pass(text: str, app_mode: str, countdown_seconds: int) -> bool:
+    """Validate, preview, count down and type one paste. False if nothing typed."""
+    effective_mode = resolve_mode(text, app_mode)
+
+    if effective_mode == "table" and not parse_table(text):
+        print_warning("No table rows detected. Use markdown |, tabs, or 2+ spaces between columns.")
+        return False
+
+    preserve_ws = effective_mode in ("sql", "text", "table")
+    cleaned = clean_text(text, preserve_whitespace=preserve_ws)
+    char_count = len(cleaned)
+    word_count = len(cleaned.split())
+
+    show_ready_message(char_count, word_count, char_count * BASE_DELAY)
+    countdown(countdown_seconds)
+    type_text(text, effective_mode)
+    show_done_message(effective_mode)
+    return True
+
+
 def main():
     """Main loop for the Lazy Typer."""
     check_and_prompt_update()
@@ -736,16 +933,9 @@ def main():
             print_warning("No text entered. Try again or type 'quit' to exit.")
             continue
 
-        preserve_ws = app_mode == "sql"
-        cleaned = clean_text(text, preserve_whitespace=preserve_ws)
-        char_count = len(cleaned)
-        word_count = len(cleaned.split())
-        estimated_time = char_count * BASE_DELAY
+        if not run_typing_pass(text, app_mode, countdown_seconds):
+            continue
 
-        show_ready_message(char_count, word_count, estimated_time)
-        countdown(countdown_seconds)
-        type_text(text, app_mode)
-        show_done_message(app_mode)
         show_menu(countdown_seconds, app_mode)
 
         choice = input(f"\n{Colors.CYAN}Your choice:{Colors.RESET} ").strip()
@@ -759,7 +949,10 @@ def main():
             print_success("Mode set: Microsoft Word")
         elif choice.lower() in ('e', 'excel'):
             app_mode = "excel"
-            print_success("Mode set: Microsoft Excel")
+            print_success("Mode set: Excel - Single Cell")
+        elif choice.lower() in ('b', 'table'):
+            app_mode = "table"
+            print_success("Mode set: Excel - Table / Grid")
         elif choice.lower() in ('t', 'text'):
             app_mode = "text"
             print_success("Mode set: Plain Text (exact copy)")
@@ -771,21 +964,14 @@ def main():
             print_success("Mode set: Compress (single line)")
         elif choice.lower() == 'm':
             app_mode = get_app_mode()
-        elif choice.lower() == 't':
+        elif choice.isdigit():
             countdown_seconds = get_countdown()
         elif choice == '':
             pass
         else:
             text = get_multiline_input(first_line=choice)
             if text.strip():
-                cleaned = clean_text(text, preserve_whitespace=(app_mode in ("sql", "text")))
-                char_count = len(cleaned)
-                word_count = len(cleaned.split())
-                estimated_time = char_count * BASE_DELAY
-                show_ready_message(char_count, word_count, estimated_time)
-                countdown(countdown_seconds)
-                type_text(text, app_mode)
-                show_done_message(app_mode)
+                run_typing_pass(text, app_mode, countdown_seconds)
             continue
 
 
