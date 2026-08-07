@@ -527,7 +527,10 @@ def check_for_latest_version():
         latest = tag.lstrip("v")
         html_url = data.get("html_url", "")
 
-        if latest and latest != VERSION:
+        # Strictly greater — a plain != would offer a "downgrade update" whenever
+        # the local version is ahead of the published release (e.g. during dev),
+        # and accepting that runs git reset --hard over your uncommitted work.
+        if latest and version_tuple(latest) > version_tuple(VERSION):
             return (latest, html_url)
         return None
     except (subprocess.TimeoutExpired, json.JSONDecodeError,
@@ -606,9 +609,43 @@ def arrow_key_select(options, selected=0):
     return selected
 
 
+def version_tuple(v: str) -> tuple:
+    """Parse a dotted version into a comparable tuple. Non-numeric parts sort last."""
+    parts = []
+    for part in v.split('.'):
+        digits = re.match(r'\d+', part)
+        parts.append(int(digits.group()) if digits else 0)
+    return tuple(parts)
+
+
+def has_uncommitted_changes(script_dir: str) -> bool:
+    """True if the repo has uncommitted work that an update would destroy."""
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=script_dir, capture_output=True, text=True, timeout=10
+        )
+        return result.returncode == 0 and bool(result.stdout.strip())
+    except (subprocess.TimeoutExpired, OSError):
+        # Can't tell — assume dirty so we never silently discard work
+        return True
+
+
 def run_git_pull():
-    """Fetch and reset to origin/main. Returns True on success."""
+    """Fetch and reset to origin/main. Returns True on success.
+
+    Refuses to run when the working tree is dirty: `git reset --hard`
+    permanently destroys uncommitted changes with no way to recover them.
+    """
     script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    if has_uncommitted_changes(script_dir):
+        print_error("You have uncommitted changes — update cancelled.")
+        print_warning("Updating runs 'git reset --hard', which would delete them permanently.")
+        print_info("Commit or stash your work first, then update:")
+        print(f"    {Colors.GRAY}git stash        {Colors.RESET}{Colors.DIM}# or: git commit -am 'wip'{Colors.RESET}")
+        return False
+
     try:
         fetch = subprocess.run(
             ["git", "fetch", "origin"],
