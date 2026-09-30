@@ -17,6 +17,8 @@
 - **Human-like typing** at ~250 WPM with natural variation
 - **Six application modes**: Word, Excel Single Cell, Excel Table/Grid, Plain Text, SQL/Code, and Compress
 - **Unicode support**: Handles non-ASCII characters (circled letters, symbols, etc.) via clipboard paste
+- **ASCII-only mode**: Types `…` as `...`, `—` as `-` and so on, never touching the clipboard. Use it inside a VM
+- **Type a file directly**: `python lazy_typer.py notes.md` skips the terminal paste
 - **Adjustable countdown timer**: Set between 1-10 seconds
 - **Quick mode switching**: Press W/E/B/T/S/C to change modes instantly
 - **Smart text cleaning**: Removes tabs, handles separators, preserves lists
@@ -40,6 +42,15 @@ pip install -r requirements.txt
 python lazy_typer.py
 ```
 
+Or type a file's contents directly. This skips the terminal paste, which macOS cuts off at 1024 bytes per line:
+
+```bash
+python lazy_typer.py ~/.claude/skills/plainspoken/SKILL.md --mode text
+python lazy_typer.py notes.md --ascii      # no clipboard, for Windows VMs
+```
+
+`--mode` accepts `word`, `excel`, `table`, `text`, `sql` or `compress` and skips the mode prompt.
+
 1. Select your application mode (Word, Excel Single Cell, Excel Table/Grid, Plain Text, SQL/Code, or Compress)
 2. Set your countdown timer (1-10 seconds, or Enter for default)
 3. Paste or type your text
@@ -50,7 +61,10 @@ python lazy_typer.py
 After typing completes, use these shortcuts:
 - **W/E/B/T/S/C** - Switch mode directly
 - **A number** - Change countdown timer
+- **A** - Toggle ASCII-only typing
 - **Q** - Quit
+
+Pasted text can contain double blank lines. Blank lines that arrive as part of a paste don't count as your "Enter 3 times".
 
 ## Modes
 
@@ -66,8 +80,9 @@ After typing completes, use these shortcuts:
 ### Mode Details
 
 - **Word**: Standard typing with Enter for newlines. Smart text cleaning converts separators, normalizes quotes, and handles bullet lists. Separator lines (---, ===) are typed as visible `---` text.
-- **Excel - Single Cell**: Same as Word but uses Alt+Enter for in-cell line breaks, so the entire input lands inside the one cell you start in. If you paste a tab-delimited or markdown table into this mode, it detects the grid and automatically switches to Table/Grid for that paste.
-- **Excel - Table / Grid**: Fills a range of cells. Auto-detects the column delimiter — markdown `|`, tabs, or 2+ spaces — then types **Tab** between cells and **Enter** at the end of each row, which returns Excel to the column you started in. Click the top-left target cell before the countdown ends. `<br>` inside a cell becomes an Alt+Enter in-cell line break. Cells are ASCII-normalized first: arrows (`→`) become ` - `, em/en dashes and bullets become `-`, so typing stays pure keystrokes.
+- **Excel - Single Cell**: Same as Word but uses Alt+Enter for in-cell line breaks, so the entire input lands inside the one cell you start in. Text starting with `-`, `+` or `@` (like a bullet list) gets a leading `'` so Excel doesn't read it as a formula. If you paste a tab-delimited or markdown table into this mode, it detects the grid and automatically switches to Table/Grid for that paste.
+- **Excel - Table / Grid**: Fills a range of cells. Auto-detects the column delimiter — markdown `|`, tabs, or 2+ spaces — then types **Tab** between cells and **Enter** at the end of each row, which returns Excel to the column you started in. Click the top-left target cell before the countdown ends. `<br>` inside a cell becomes an Alt+Enter in-cell line break. Cells are ASCII-normalized first: em/en dashes and bullets become `-`, so typing stays pure keystrokes. The same `'` formula guard applies per cell, and a Forward Delete after each cell drops any Excel AutoComplete suggestion, so `A` isn't completed to `Apple` from the row above.
+- **Date ranges become start/end column pairs**: a cell like `21-Sep → 12-Oct` is typed as two cells, `21-Sep` then `12-Oct`. Any column containing a range *anywhere* is split, so the grid stays rectangular — single values in that column (`26-Oct-26`) go in the start cell and leave the end cell blank, ready for you to merge. Label columns with no ranges are untouched, and a table with no ranges at all is unaffected. Range separators are arrows or a *spaced* dash (`-`, `–`, `—`), and both sides must look like dates; `26-Oct-26` is not a range and `Pending → Done` stays in one cell.
 - **Plain Text**: Types everything exactly as entered — no separator conversion, no bullet handling. Only smart quotes are normalized. Ideal when you want a 1:1 copy of your input.
 - **SQL / Code**: Preserves indentation and alignment. After each Enter, clears any auto-indent the target editor may add, then types the exact leading spaces from your original text. Perfect for pasting formatted SQL or code into editors that auto-indent.
 - **Compress**: Joins all lines into a single line with no line breaks. Useful for single-line input fields.
